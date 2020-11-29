@@ -162,7 +162,7 @@ threadpool_create(size_t min, size_t max) {
                 }
                 if (!pool->info.is_shutdown) {
                   pthread_mutexattr_destroy(&mtxattr);
-                  while (!pool->info.idle_count == min) {
+                  while (pool->info.idle_count != min) {
                     pthread_cond_wait(&pool->cond_thread_new_or_die, &pool->lock);
                   }
                   pthread_mutex_unlock(&pool->lock);
