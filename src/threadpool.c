@@ -211,8 +211,8 @@ threadpool_shutdown(ThreadPool *pool, bool cancelRemaining) {
 
 void
 threadpool_destroy(ThreadPool *pool) {
-  pthread_mutex_lock(&pool->lock);
   threadpool_shutdown(pool, false);
+  pthread_mutex_lock(&pool->lock);
   pthread_cond_destroy(&pool->cond_active);
   pthread_cond_destroy(&pool->cond_inactive);
   pthread_cond_destroy(&pool->cond_thread_new_or_die);
