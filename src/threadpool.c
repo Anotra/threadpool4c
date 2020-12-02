@@ -45,8 +45,8 @@ task_free(ThreadPoolTask *task) {
 
 static void *
 thread_run(void *arg) {
-  struct joinable_thread *joinableThread = arg;
-  ThreadPool *pool = joinableThread->pool;
+  struct joinable_thread *joinable_thread = arg;
+  ThreadPool *pool = joinable_thread->pool;
   pthread_mutex_lock(&pool->lock);
   pthread_cond_broadcast(&pool->cond_thread_new_or_die);
   if (!pool->info.is_shutdown) {
@@ -105,11 +105,11 @@ thread_run(void *arg) {
   }
   pool->info.thread_count--;
   if (pool->info.is_shutdown) {
-    joinableThread->next = pool->joinable_threads;
-    pool->joinable_threads = joinableThread;
+    joinable_thread->next = pool->joinable_threads;
+    pool->joinable_threads = joinable_thread;
   } else {
-    pthread_detach(joinableThread->thread);
-    free(joinableThread);
+    pthread_detach(joinable_thread->thread);
+    free(joinable_thread);
   }
   pthread_cond_broadcast(&pool->cond_thread_new_or_die);
   pthread_mutex_unlock(&pool->lock);
@@ -118,14 +118,14 @@ thread_run(void *arg) {
 
 static bool
 thread_new(ThreadPool *pool) {
-  struct joinable_thread *joinableThread = calloc(1, sizeof *joinableThread);
-  if (joinableThread) {
-    joinableThread->pool = pool;
+  struct joinable_thread *joinable_thread = calloc(1, sizeof *joinable_thread);
+  if (joinable_thread) {
+    joinable_thread->pool = pool;
     pthread_mutex_lock(&pool->lock);
-    int result = pthread_create(&joinableThread->thread, &pool->thread_attributes, thread_run, joinableThread);
+    int result = pthread_create(&joinable_thread->thread, &pool->thread_attributes, thread_run, joinable_thread);
     if (result != 0) {
       pthread_mutex_unlock(&pool->lock);
-      free(joinableThread);
+      free(joinable_thread);
       return false;
     }
     pool->info.thread_count++;
@@ -187,11 +187,11 @@ threadpool_create(size_t min, size_t max) {
 }
 
 void
-threadpool_shutdown(ThreadPool *pool, bool cancelRemaining) {
+threadpool_shutdown(ThreadPool *pool, bool cancel_remaining) {
   pthread_mutex_lock(&pool->lock);
   const bool is_already_shutdown = pool->info.is_shutdown;
   if (!is_already_shutdown) {
-    pool->cancel_remaining = cancelRemaining;
+    pool->cancel_remaining = cancel_remaining;
     pool->info.is_shutdown = true;
   }
   pthread_cond_broadcast(&pool->cond_active);

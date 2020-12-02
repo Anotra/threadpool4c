@@ -48,7 +48,7 @@ threadpool_create(size_t min, size_t max);
  * @param cancelRemaining cancel all remaining tasks on thread pool
  */
 extern void
-threadpool_shutdown(ThreadPool *pool, bool cancelRemaining);
+threadpool_shutdown(ThreadPool *pool, bool cancel_remaining);
 
 /** Destroy Thread Pool
  * Ensure all tasks are destroyed before calling this
