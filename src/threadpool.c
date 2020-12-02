@@ -189,22 +189,23 @@ threadpool_create(size_t min, size_t max) {
 void
 threadpool_shutdown(ThreadPool *pool, bool cancelRemaining) {
   pthread_mutex_lock(&pool->lock);
-  if (pool->info.is_shutdown) {
-    pthread_mutex_unlock(&pool->lock);
-    return;
+  const bool is_already_shutdown = pool->info.is_shutdown;
+  if (!is_already_shutdown) {
+    pool->cancel_remaining = cancelRemaining;
+    pool->info.is_shutdown = true;
   }
-  pool->cancel_remaining = cancelRemaining;
-  pool->info.is_shutdown = true;
   pthread_cond_broadcast(&pool->cond_active);
   pthread_cond_broadcast(&pool->cond_inactive);
   while (pool->info.thread_count) {
     pthread_cond_wait(&pool->cond_thread_new_or_die, &pool->lock);
   }
-  for (struct joinable_thread *p = pool->joinable_threads; p;) {
-    struct joinable_thread *next = p->next;
-    pthread_join(p->thread, NULL);
-    free(p);
-    p = next;
+  if (!is_already_shutdown) {
+    for (struct joinable_thread *p = pool->joinable_threads; p;) {
+      struct joinable_thread *next = p->next;
+      pthread_join(p->thread, NULL);
+      free(p);
+      p = next;
+    }
   }
   pthread_mutex_unlock(&pool->lock);
 }
