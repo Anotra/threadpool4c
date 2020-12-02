@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-
+#include <pthread.h>
 
 #include "threadpool.h"
 
@@ -19,6 +19,13 @@ static void clean(ThreadPoolTask *task, void *data) {
     - ((info.time_started.tv_sec * 1000000000) + info.time_started.tv_nsec);
   printf("Clean: Runtime:%lu, Task:%s Cancelled:%s\n", runtime, (char *) data, info.cancelled ? "true" : "false");
   free(data);
+}
+
+void * thread2_run(void *threadpool) {
+  sleep(1);
+  threadpool_shutdown(threadpool, false);
+  printf("THREAD 2 DONE!\n");
+  return NULL;
 }
 
 int main() {
@@ -39,6 +46,8 @@ int main() {
     }
     ThreadPoolInfo info;
     threadpool_info(pool, &info);
+    pthread_t thread2;
+    pthread_create(&thread2, NULL, thread2_run, pool);
     sleep(1);
     threadpool_shutdown(pool, true);
     ThreadPoolInfo info2;
@@ -48,5 +57,6 @@ int main() {
     printf("---after shutdown---\nmin:%lu\nmax:%lu\ncount:%lu\nactive:%lu\nidle:%lu\n",
        info2.thread_min, info2.thread_max, info2.thread_count, info2.active_count, info2.idle_count);
     threadpool_destroy(pool);
+    pthread_join(thread2, NULL);
   }
 }
