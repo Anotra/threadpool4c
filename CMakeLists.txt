@@ -7,7 +7,7 @@ add_library(threadpool4c SHARED
   src/threadpool.c
 )
 target_include_directories(threadpool4c PUBLIC include)
-target_link_libraries(threadpool4c ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(threadpool4c Threads::Threads)
 set_property(TARGET threadpool4c PROPERTY C_STANDARD 99)
 
 
