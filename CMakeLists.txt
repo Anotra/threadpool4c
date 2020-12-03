@@ -11,8 +11,8 @@ target_link_libraries(threadpool4c ${CMAKE_THREAD_LIBS_INIT})
 set_property(TARGET threadpool4c PROPERTY C_STANDARD 99)
 
 
-project(test)
-add_executable(test
+project(test_threadpool)
+add_executable(test_threadpool
   test/test.c
 )
-target_link_libraries(test PRIVATE threadpool4c)
+target_link_libraries(test_threadpool PRIVATE threadpool4c)
