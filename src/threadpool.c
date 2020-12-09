@@ -79,30 +79,29 @@ thread_run(void *arg) {
           task_free(task);
         }
         pool->info.active_count--;
-      } else {
-        if (pool->info.is_shutdown) {
+      } else if (pool->info.is_shutdown) {
           break;
-        } else {
-          pool->info.idle_count++;
-          if (pool->waiting_count + pool->info.active_count >= pool->info.thread_min) {
-            struct timespec ts;
-            clock_gettime(CLOCK_REALTIME, &ts);
-            ts.tv_sec += pool->info.idle_timeout_seconds;
-            pool->waiting_to_die_count++;
-            pthread_cond_timedwait(&pool->cond_inactive, &pool->lock, &ts);
-            pool->waiting_to_die_count--;
-            if (!pool->tasks) {
-              pool->info.idle_count--;
-              break;
-            }
-          } else {
-            pool->waiting_count++;
-            pthread_cond_wait(&pool->cond_active, &pool->lock);
-            pool->waiting_count--;
+      } else {
+        pool->info.idle_count++;
+        if (pool->waiting_count + pool->info.active_count >= pool->info.thread_min) {
+          struct timespec ts;
+          clock_gettime(CLOCK_REALTIME, &ts);
+          ts.tv_sec += pool->info.idle_timeout_seconds;
+          pool->waiting_to_die_count++;
+          pthread_cond_timedwait(&pool->cond_inactive, &pool->lock, &ts);
+          pool->waiting_to_die_count--;
+          if (!pool->tasks) {
+            pool->info.idle_count--;
+            break;
           }
-          pool->info.idle_count--;
+        } else {
+          pool->waiting_count++;
+          pthread_cond_wait(&pool->cond_active, &pool->lock);
+          pool->waiting_count--;
         }
+        pool->info.idle_count--;
       }
+      
     }
   }
   pool->info.thread_count--;
