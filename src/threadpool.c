@@ -213,12 +213,12 @@ threadpool_shutdown(ThreadPool *pool, bool cancel_remaining) {
 void
 threadpool_destroy(ThreadPool *pool) {
   threadpool_shutdown(pool, false);
-  pthread_mutex_lock(&pool->lock);
+
   pthread_cond_destroy(&pool->cond_active);
   pthread_cond_destroy(&pool->cond_inactive);
   pthread_cond_destroy(&pool->cond_thread_new_or_die);
   pthread_attr_destroy(&pool->thread_attributes);
-  pthread_mutex_unlock(&pool->lock);
+  pthread_mutex_destroy(&pool->lock);
   free(pool);
 }
 
