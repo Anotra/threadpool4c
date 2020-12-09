@@ -69,10 +69,12 @@ thread_run(void *arg) {
           task->info.cancelled = true;
         }
         clock_gettime(CLOCK_REALTIME, &task->info.time_finished);
-        task->info.finished = true;
         if (task->cleanup) {
+          pthread_mutex_unlock(&pool->lock);
           task->cleanup(task, task->data);
+          pthread_mutex_lock(&pool->lock);
         }
+        task->info.finished = true;
         if (task->info.destroy_on_completion) {
           task_free(task);
         }
