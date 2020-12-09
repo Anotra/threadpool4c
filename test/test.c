@@ -22,8 +22,8 @@ static void clean(ThreadPoolTask *task, void *data) {
 }
 
 void * thread2_run(void *threadpool) {
-  sleep(1);
-  threadpool_shutdown(threadpool, false);
+  sleep(2);
+  threadpool_shutdown(threadpool, true);
   printf("THREAD 2 DONE!\n");
   return NULL;
 }
@@ -49,7 +49,7 @@ int main() {
     pthread_t thread2;
     pthread_create(&thread2, NULL, thread2_run, pool);
     sleep(1);
-    threadpool_shutdown(pool, true);
+    threadpool_shutdown(pool, false);
     ThreadPoolInfo info2;
     threadpool_info(pool, &info2);
     printf("---before shutdown---\nmin:%lu\nmax:%lu\ncount:%lu\nactive:%lu\nidle:%lu\n",

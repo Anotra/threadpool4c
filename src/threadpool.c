@@ -192,10 +192,8 @@ void
 threadpool_shutdown(ThreadPool *pool, bool cancel_remaining) {
   pthread_mutex_lock(&pool->lock);
   const bool is_already_shutdown = pool->public.is_shutdown;
-  if (!is_already_shutdown) {
-    pool->cancel_remaining = cancel_remaining;
-    pool->public.is_shutdown = true;
-  }
+  pool->cancel_remaining |= cancel_remaining;
+  pool->public.is_shutdown = true;
   pthread_cond_broadcast(&pool->cond_active);
   pthread_cond_broadcast(&pool->cond_inactive);
   while (pool->public.thread_count) {
