@@ -27,7 +27,7 @@ struct threadpool {
   struct joinable_thread *joinable_threads;
   int64_t id_counter;
   bool cancel_remaining;
-  ThreadPoolInfo info;
+  ThreadPoolInfo public;
 };
 
 struct threadpool_task {
@@ -35,7 +35,7 @@ struct threadpool_task {
   ThreadPoolCleanup *cleanup;
   void *data;
   void *next;
-  ThreadPoolTaskInfo info;
+  ThreadPoolTaskInfo public;
 };
 
 static inline void
@@ -49,10 +49,10 @@ thread_run(void *arg) {
   ThreadPool *pool = joinable_thread->pool;
   pthread_mutex_lock(&pool->lock);
   pthread_cond_broadcast(&pool->cond_thread_new_or_die);
-  if (!pool->info.is_shutdown) {
+  if (!pool->public.is_shutdown) {
     while (true) {
       if (pool->tasks) {
-        pool->info.active_count++;
+        pool->public.active_count++;
         ThreadPoolTask *tail = pool->tasks;
         ThreadPoolTask *task = tail->next;
         if (tail == task) {
@@ -60,38 +60,38 @@ thread_run(void *arg) {
         } else {
           tail->next = task->next;
         }
-        clock_gettime(CLOCK_REALTIME, &task->info.time_started);
-        if (!task->info.cancelled && !pool->cancel_remaining) {
+        clock_gettime(CLOCK_REALTIME, &task->public.time_started);
+        if (!task->public.cancelled && !pool->cancel_remaining) {
           pthread_mutex_unlock(&pool->lock);
           task->runnable(task, task->data);
           pthread_mutex_lock(&pool->lock);
         } else {
-          task->info.cancelled = true;
+          task->public.cancelled = true;
         }
-        clock_gettime(CLOCK_REALTIME, &task->info.time_finished);
+        clock_gettime(CLOCK_REALTIME, &task->public.time_finished);
         if (task->cleanup) {
           pthread_mutex_unlock(&pool->lock);
           task->cleanup(task, task->data);
           pthread_mutex_lock(&pool->lock);
         }
-        task->info.finished = true;
-        if (task->info.destroy_on_completion) {
+        task->public.finished = true;
+        if (task->public.destroy_on_completion) {
           task_free(task);
         }
-        pool->info.active_count--;
-      } else if (pool->info.is_shutdown) {
+        pool->public.active_count--;
+      } else if (pool->public.is_shutdown) {
           break;
       } else {
-        pool->info.idle_count++;
-        if (pool->waiting_count + pool->info.active_count >= pool->info.thread_min) {
+        pool->public.idle_count++;
+        if (pool->waiting_count + pool->public.active_count >= pool->public.thread_min) {
           struct timespec ts;
           clock_gettime(CLOCK_REALTIME, &ts);
-          ts.tv_sec += pool->info.idle_timeout_seconds;
+          ts.tv_sec += pool->public.idle_timeout_seconds;
           pool->waiting_to_die_count++;
           pthread_cond_timedwait(&pool->cond_inactive, &pool->lock, &ts);
           pool->waiting_to_die_count--;
           if (!pool->tasks) {
-            pool->info.idle_count--;
+            pool->public.idle_count--;
             break;
           }
         } else {
@@ -99,13 +99,13 @@ thread_run(void *arg) {
           pthread_cond_wait(&pool->cond_active, &pool->lock);
           pool->waiting_count--;
         }
-        pool->info.idle_count--;
+        pool->public.idle_count--;
       }
       
     }
   }
-  pool->info.thread_count--;
-  if (pool->info.is_shutdown) {
+  pool->public.thread_count--;
+  if (pool->public.is_shutdown) {
     joinable_thread->next = pool->joinable_threads;
     pool->joinable_threads = joinable_thread;
   } else {
@@ -129,7 +129,7 @@ thread_new(ThreadPool *pool) {
       free(joinable_thread);
       return false;
     }
-    pool->info.thread_count++;
+    pool->public.thread_count++;
     pthread_mutex_unlock(&pool->lock);
     return true;
   }
@@ -140,9 +140,9 @@ ThreadPool *
 threadpool_create(size_t min, size_t max) {
   ThreadPool *pool = calloc(1, sizeof *pool);
   if (pool) {
-    pool->info.thread_min = min;
-    pool->info.thread_max = max;
-    pool->info.idle_timeout_seconds = 60;
+    pool->public.thread_min = min;
+    pool->public.thread_max = max;
+    pool->public.idle_timeout_seconds = 60;
     pthread_mutexattr_t mtxattr;
     if (pthread_mutexattr_init(&mtxattr) == 0) {
       pthread_mutexattr_settype(&mtxattr, PTHREAD_MUTEX_RECURSIVE);
@@ -155,16 +155,16 @@ threadpool_create(size_t min, size_t max) {
 		pthread_attr_setstacksize(&pool->thread_attributes, 1024 * 1024 * 2);
                 for (int i = 0; i < min; i++) {
                   if(!thread_new(pool)) {
-                    pool->info.is_shutdown = true;
-                    while (pool->info.thread_count) {
+                    pool->public.is_shutdown = true;
+                    while (pool->public.thread_count) {
                       pthread_cond_wait(&pool->cond_thread_new_or_die, &pool->lock);
                     }
                     break;
                   }
                 }
-                if (!pool->info.is_shutdown) {
+                if (!pool->public.is_shutdown) {
                   pthread_mutexattr_destroy(&mtxattr);
-                  while (pool->info.idle_count != min) {
+                  while (pool->public.idle_count != min) {
                     pthread_cond_wait(&pool->cond_thread_new_or_die, &pool->lock);
                   }
                   pthread_mutex_unlock(&pool->lock);
@@ -191,14 +191,14 @@ threadpool_create(size_t min, size_t max) {
 void
 threadpool_shutdown(ThreadPool *pool, bool cancel_remaining) {
   pthread_mutex_lock(&pool->lock);
-  const bool is_already_shutdown = pool->info.is_shutdown;
+  const bool is_already_shutdown = pool->public.is_shutdown;
   if (!is_already_shutdown) {
     pool->cancel_remaining = cancel_remaining;
-    pool->info.is_shutdown = true;
+    pool->public.is_shutdown = true;
   }
   pthread_cond_broadcast(&pool->cond_active);
   pthread_cond_broadcast(&pool->cond_inactive);
-  while (pool->info.thread_count) {
+  while (pool->public.thread_count) {
     pthread_cond_wait(&pool->cond_thread_new_or_die, &pool->lock);
   }
   if (!is_already_shutdown) {
@@ -236,23 +236,23 @@ threadpool_execute(
   if (taskret)
     *taskret = task;
   if (task) {
-    task->info.pool = pool;
+    task->public.pool = pool;
     task->runnable = runnable;
     task->cleanup = cleanup;
     task->data = data;
     task->next = task;
-    task->info.user_has_pointer = !!taskret;
-    task->info.destroy_on_completion = !taskret;
-    clock_gettime(CLOCK_REALTIME, &task->info.time_created);
+    task->public.user_has_pointer = !!taskret;
+    task->public.destroy_on_completion = !taskret;
+    clock_gettime(CLOCK_REALTIME, &task->public.time_created);
     pthread_mutex_lock(&pool->lock);
-    if (pool->info.is_shutdown) {
+    if (pool->public.is_shutdown) {
       pthread_mutex_unlock(&pool->lock);
       if (taskret)
         *taskret = NULL;
       free(task);
       return false;
     }
-    task->info.id = pool->id_counter++;
+    task->public.id = pool->id_counter++;
     if (pool->tasks) {
       task->next = pool->tasks->next;
       pool->tasks->next = task;
@@ -262,7 +262,7 @@ threadpool_execute(
       pthread_cond_signal(&pool->cond_active);
     } else if (pool->waiting_to_die_count) {
       pthread_cond_signal(&pool->cond_inactive);
-    } else if (pool->info.thread_count < pool->info.thread_max) {
+    } else if (pool->public.thread_count < pool->public.thread_max) {
       thread_new(pool);
     }
     pthread_mutex_unlock(&pool->lock);
@@ -273,13 +273,13 @@ threadpool_execute(
 
 void
 threadpool_destroy_task_on_completion(ThreadPoolTask *task, bool cancel) {
-  pthread_mutex_t *mutex = &task->info.pool->lock;
+  pthread_mutex_t *mutex = &task->public.pool->lock;
   pthread_mutex_lock(mutex);
-  if (task->info.finished) {
+  if (task->public.finished) {
     task_free(task);
   } else {
-    task->info.cancelled = cancel;
-    task->info.destroy_on_completion = true;
+    task->public.cancelled = cancel;
+    task->public.destroy_on_completion = true;
   }
   pthread_mutex_unlock(mutex);
 }
@@ -287,13 +287,13 @@ threadpool_destroy_task_on_completion(ThreadPoolTask *task, bool cancel) {
 void
 threadpool_info(ThreadPool *pool, ThreadPoolInfo *info) {
   pthread_mutex_lock(&pool->lock);
-  memcpy(info, &pool->info, sizeof *info);
+  memcpy(info, &pool->public, sizeof *info);
   pthread_mutex_unlock(&pool->lock);
 }
 
 void
 threadpool_task_info(ThreadPoolTask *task, ThreadPoolTaskInfo *info) {
-  pthread_mutex_lock(&task->info.pool->lock);
-  memcpy(info, &task->info, sizeof *info);
-  pthread_mutex_unlock(&task->info.pool->lock);
+  pthread_mutex_lock(&task->public.pool->lock);
+  memcpy(info, &task->public, sizeof *info);
+  pthread_mutex_unlock(&task->public.pool->lock);
 }
