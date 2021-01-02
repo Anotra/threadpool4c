@@ -21,7 +21,7 @@ struct threadpool {
   size_t waiting_to_die_count;
   ThreadPoolTask *tasks;
   struct joinable_thread *joinable_threads;
-  int64_t id_counter;
+  uint64_t id_counter;
   bool cancel_remaining;
   ThreadPoolInfo public;
 };
@@ -218,7 +218,7 @@ threadpool_destroy(ThreadPool *pool) {
   free(pool);
 }
 
-bool
+uint64_t
 threadpool_execute(
   ThreadPool *pool,
   ThreadPoolRunnable *runnable,
@@ -244,9 +244,9 @@ threadpool_execute(
       if (taskret)
         *taskret = NULL;
       free(task);
-      return false;
+      return 0;
     }
-    task->public.id = pool->id_counter++;
+    task->public.id = ++pool->id_counter;
     if (pool->tasks) {
       task->next = pool->tasks->next;
       pool->tasks->next = task;
@@ -259,10 +259,11 @@ threadpool_execute(
     } else if (pool->public.thread_count < pool->public.thread_max) {
       thread_new(pool);
     }
+    const uint64_t task_id = task->public.id;
     pthread_mutex_unlock(&pool->lock);
-    return true;
+    return task_id;
   }
-  return false;
+  return 0;
 }
 
 void

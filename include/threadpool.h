@@ -64,9 +64,9 @@ threadpool_destroy(ThreadPool *pool);
  * @param data data passed to run and cleanup function
  * @param task pass NULL or &task and you're required to call threadpool_destroy_task_when_done later
  * @see threadpool_destroy_task_when_done()
- * @return bool true if task added to queue.
+ * @return task id or (0 if failed to add task to queue)
  */
-extern bool
+extern uint64_t
 threadpool_execute(
   ThreadPool *pool,
   ThreadPoolRunnable *runnable,
