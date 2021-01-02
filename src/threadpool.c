@@ -1,8 +1,4 @@
-#if __STDC_VERSION__ >= 199901L
-#define _XOPEN_SOURCE 600
-#else
-#define _XOPEN_SOURCE 500
-#endif
+#define _XOPEN_SOURCE 700
 
 #include <pthread.h>
 #include <string.h>
