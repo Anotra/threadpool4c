@@ -85,6 +85,14 @@ threadpool_execute(
 extern void
 threadpool_destroy_task_on_completion(ThreadPoolTask *task, bool cancel);
 
+/**
+ * calls threadpool_destroy_task_on_completion
+ */
+static inline void
+threadpool_destroy_task(ThreadPoolTask *task, bool cancel) {
+  threadpool_destroy_task_on_completion(task, cancel);
+}
+
 /** Get info about a Thread Pool
  * @param pool ThreadPool to get info about
  * @param info Where to copy info into
