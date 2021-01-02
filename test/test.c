@@ -6,29 +6,45 @@
 
 #include "threadpool.h"
 
-static void run(ThreadPoolTask *task, void *data) {
+static void
+run(ThreadPoolTask *task, void *data) {
   if (rand() % 50 == 0)
     sleep(1);
   printf("Run %s\n", (char *) data);
 }
 
-static void clean(ThreadPoolTask *task, void *data) {
+static void
+clean(ThreadPoolTask *task, void *data) {
   ThreadPoolTaskInfo info;
   threadpool_task_info(task, &info);
-  time_t runtime = ((info.time_finished.tv_sec * 1000000000)  + info.time_finished.tv_nsec)
-    - ((info.time_started.tv_sec * 1000000000) + info.time_started.tv_nsec);
+  time_t runtime = (info.time_finished.tv_sec - info.time_started.tv_sec) * 1000000000 + info.time_finished.tv_nsec - info.time_started.tv_nsec;
   printf("Clean: Runtime:%lu, Task:%s Cancelled:%s\n", runtime, (char *) data, info.cancelled ? "true" : "false");
   free(data);
 }
 
-void * thread2_run(void *threadpool) {
+static void *
+thread2_run(void *threadpool) {
   sleep(2);
   threadpool_shutdown(threadpool, true);
   printf("THREAD 2 DONE!\n");
   return NULL;
 }
 
-int main() {
+static struct {
+  int count;
+  pthread_mutex_t mtx;
+} test_incr_data;
+
+static void
+incr_test(ThreadPoolTask *task, void *incr) {
+  pthread_mutex_lock(&test_incr_data.mtx);
+  test_incr_data.count += *(int *)incr;
+  pthread_mutex_unlock(&test_incr_data.mtx);
+  free(incr);
+}
+
+int
+main() {
   ThreadPool *pool = threadpool_create(1, 50);
   if (pool) {
     for (int i=0; i<10000; i++) {
@@ -58,5 +74,23 @@ int main() {
        info2.thread_min, info2.thread_max, info2.thread_count, info2.active_count, info2.idle_count);
     threadpool_destroy(pool);
     pthread_join(thread2, NULL);
+
+
+    printf("Running Increment Test\n");
+    pool = threadpool_create(10, 50);
+    pthread_mutex_init(&test_incr_data.mtx, NULL);
+    const int incr_test_count = 100000;
+    int incr_test_result = 0;
+    for (int i=0; i<incr_test_count; i++) {
+      int *val = malloc(sizeof *val);
+      *val = i;
+      incr_test_result += i;
+      threadpool_execute(pool, incr_test, NULL, val, NULL);
+    }
+    threadpool_shutdown(pool, false);
+    pthread_mutex_destroy(&test_incr_data.mtx);
+    printf("Increment test %i: %s\n", incr_test_count, test_incr_data.count == incr_test_result ? "Succeeded" : "Failed");
+    threadpool_destroy(pool);
+
   }
 }
