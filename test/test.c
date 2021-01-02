@@ -56,7 +56,7 @@ main() {
           free(buf);
         } else {
           printf("task: %p\n", task);
-          threadpool_destroy_task_on_completion(task, false);
+          threadpool_destroy_task(task, false);
         }
       }
     }

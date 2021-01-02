@@ -30,7 +30,7 @@ typedef struct threadpool_task_info {
   bool finished:1;
   bool cancelled:1;
   bool user_has_pointer:1;
-  bool destroy_on_completion:1;
+  bool destroy_when_done:1;
 } ThreadPoolTaskInfo;
 
 /** Create Thread Pool
@@ -62,8 +62,8 @@ threadpool_destroy(ThreadPool *pool);
  * @param runnable void run(ThreadPoolTask *task, void *data)
  * @param cleanup pass NULL or void cleanup(ThreadPoolTask *task, void *data)
  * @param data data passed to run and cleanup function
- * @param task pass NULL or &task and you're required to call threadpool_destroy_task_on_completion later
- * @see threadpool_destroy_task_on_completion()
+ * @param task pass NULL or &task and you're required to call threadpool_destroy_task_when_done later
+ * @see threadpool_destroy_task_when_done()
  * @return bool true if task added to queue.
  */
 extern bool
@@ -78,19 +78,19 @@ threadpool_execute(
 /** Destroy Task
  * Call this when you're done using a ThreadPoolTask 
  * This will be destroyed automatically after cleanup unless 
- * you assign it to a pointed with threadpool_execute
+ * you assign it to a pointer with threadpool_execute
  * @param task Task to destroy
  * @param cancel cancel the task if it's not been executed
  */
 extern void
-threadpool_destroy_task_on_completion(ThreadPoolTask *task, bool cancel);
+threadpool_destroy_task_when_done(ThreadPoolTask *task, bool cancel);
 
 /**
- * calls threadpool_destroy_task_on_completion
+ * calls threadpool_destroy_task_when_done
  */
 static inline void
 threadpool_destroy_task(ThreadPoolTask *task, bool cancel) {
-  threadpool_destroy_task_on_completion(task, cancel);
+  threadpool_destroy_task_when_done(task, cancel);
 }
 
 /** Get info about a Thread Pool

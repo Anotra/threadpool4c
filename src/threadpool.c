@@ -71,7 +71,7 @@ thread_run(void *arg) {
           pthread_mutex_lock(&pool->lock);
         }
         task->public.finished = true;
-        if (task->public.destroy_on_completion) {
+        if (task->public.destroy_when_done) {
           task_free(task);
         }
         pool->public.active_count--;
@@ -236,7 +236,7 @@ threadpool_execute(
     task->data = data;
     task->next = task;
     task->public.user_has_pointer = !!taskret;
-    task->public.destroy_on_completion = !taskret;
+    task->public.destroy_when_done = !taskret;
     clock_gettime(CLOCK_REALTIME, &task->public.time_created);
     pthread_mutex_lock(&pool->lock);
     if (pool->public.is_shutdown) {
@@ -266,14 +266,14 @@ threadpool_execute(
 }
 
 void
-threadpool_destroy_task_on_completion(ThreadPoolTask *task, bool cancel) {
+threadpool_destroy_task_when_done(ThreadPoolTask *task, bool cancel) {
   pthread_mutex_t *mutex = &task->public.pool->lock;
   pthread_mutex_lock(mutex);
   if (task->public.finished) {
     task_free(task);
   } else {
     task->public.cancelled = cancel;
-    task->public.destroy_on_completion = true;
+    task->public.destroy_when_done = true;
   }
   pthread_mutex_unlock(mutex);
 }
